@@ -10,7 +10,7 @@
 using namespace std;
 
 #define	ARRAYSIZE	5000
-#define MASTER		0         /* taskid of first process */
+#define MASTER		0         /* id del primer procesador */
 
 typedef struct coordenadas
 {
@@ -198,54 +198,53 @@ int main(int argc, char *argv[])
     coordenada carreglo[ARRAYSIZE], carregloRes[ARRAYSIZE], nuevocarreglo[10000];
     triangulo tarreglo[ARRAYSIZE], tarregloRes[ARRAYSIZE], nuevotarreglo[10000];
 
-    int	numtasks,numworkers,taskid,rc,dest,index,i,source,chunksize;
+    int	numtareas,numesclavos,id,rc,dest,index,i,origen,tamano;
     int arraymsg = 1;
     int indexmsg = 2;
 
     MPI_Status status;
 
     rc = MPI_Init(&argc,&argv); // rc error code
-    rc|= MPI_Comm_size(MPI_COMM_WORLD,&numtasks);
-    rc|= MPI_Comm_rank(MPI_COMM_WORLD,&taskid);
+    rc|= MPI_Comm_size(MPI_COMM_WORLD,&numtareas);
+    rc|= MPI_Comm_rank(MPI_COMM_WORLD,&id);
 
     if (rc != 0)
       cout << "Error al inicializar Mpi\n";
 
-    numworkers = numtasks-1;// determina los que no son master
-    chunksize = (ARRAYSIZE / numworkers);//reparte el tamaño del arreglo en la cantidad de procesadores
+    numesclavos = numtareas-1;// determina los que no son master
+    tamano = (ARRAYSIZE / numesclavos);//reparte el tamano del arreglo en la cantidad de procesadores
 
-/**************************** master task ********************************/
 
-    if (taskid == MASTER){
+    if (id == MASTER){
 
       llenarCoordenadas(carreglo);
       llenarTriangulos(tarreglo);
-      for (dest=1; dest<= numworkers; dest++){//for que hace la magia de enviar las cosas
+      for (dest=1; dest<= numesclavos; dest++){//for que hace la magia de enviar las cosas
 
         MPI_Send(&index, 1, MPI_INT, dest, indexmsg, MPI_COMM_WORLD);// envia el index a cada procesador dest
-        MPI_Send(&carreglo[index], chunksize, MPI_DOUBLE, dest, arraymsg,MPI_COMM_WORLD);
+        MPI_Send(&carreglo[index], tamano, MPI_DOUBLE, dest, arraymsg,MPI_COMM_WORLD);
         MPI_Send(&index, 1, MPI_INT, dest, indexmsg, MPI_COMM_WORLD);// envia el index a cada procesador dest
-        MPI_Send(&tarreglo[index], chunksize, MPI_DOUBLE, dest, arraymsg,MPI_COMM_WORLD);
-        index = index + chunksize;// con esto se envia cada parte del arreglo a los otros
+        MPI_Send(&tarreglo[index], tamano, MPI_DOUBLE, dest, arraymsg,MPI_COMM_WORLD);
+        index = index + tamano;// con esto se envia cada parte del arreglo a los otros
       }
 
-      for (i=1; i<= numworkers; i++){//cada procesador esclavo recive el index y el array
-        source = i;
-        MPI_Recv(&index, 1, MPI_INT, source, indexmsg, MPI_COMM_WORLD,&status);
-        MPI_Recv(&carregloRes[index], chunksize, MPI_DOUBLE, source, arraymsg, MPI_COMM_WORLD, &status);
-        MPI_Recv(&index, 1, MPI_INT, source, indexmsg, MPI_COMM_WORLD,&status);
-        MPI_Recv(&tarregloRes[index], chunksize, MPI_DOUBLE, source, arraymsg, MPI_COMM_WORLD, &status);
+      for (i=1; i<= numesclavos; i++){//cada procesador esclavo recive el index y el array
+        origen = i;
+        MPI_Recv(&index, 1, MPI_INT, origen, indexmsg, MPI_COMM_WORLD,&status);
+        MPI_Recv(&carregloRes[index], tamano, MPI_DOUBLE, origen, arraymsg, MPI_COMM_WORLD, &status);
+        MPI_Recv(&index, 1, MPI_INT, origen, indexmsg, MPI_COMM_WORLD,&status);
+        MPI_Recv(&tarregloRes[index], tamano, MPI_DOUBLE, origen, arraymsg, MPI_COMM_WORLD, &status);
       }
     }
 
 /**************************** worker task ********************************/
 
-    if (taskid > MASTER){
-      source = MASTER;
-      MPI_Recv(&index, 1, MPI_INT, source, indexmsg, MPI_COMM_WORLD,&status);
-      MPI_Recv(&carregloRes[index], chunksize, MPI_DOUBLE, source, arraymsg,MPI_COMM_WORLD, &status);
-      MPI_Recv(&index, 1, MPI_INT, source, indexmsg, MPI_COMM_WORLD,&status);
-      MPI_Recv(&tarregloRes[index], chunksize, MPI_DOUBLE, source, arraymsg,MPI_COMM_WORLD, &status);
+    if (id > MASTER){
+      origen = MASTER;
+      MPI_Recv(&index, 1, MPI_INT, origen, indexmsg, MPI_COMM_WORLD,&status);
+      MPI_Recv(&carregloRes[index], tamano, MPI_DOUBLE, origen, arraymsg,MPI_COMM_WORLD, &status);
+      MPI_Recv(&index, 1, MPI_INT, origen, indexmsg, MPI_COMM_WORLD,&status);
+      MPI_Recv(&tarregloRes[index], tamano, MPI_DOUBLE, origen, arraymsg,MPI_COMM_WORLD, &status);
 
 
       clonarNodos(carregloRes, nuevocarreglo);
@@ -255,9 +254,9 @@ int main(int argc, char *argv[])
 
       dest = MASTER;
       MPI_Send(&index, 1, MPI_INT, dest, indexmsg, MPI_COMM_WORLD);
-      MPI_Send(&carregloRes[index], chunksize, MPI_DOUBLE, MASTER, arraymsg,MPI_COMM_WORLD);
+      MPI_Send(&carregloRes[index], tamano, MPI_DOUBLE, MASTER, arraymsg,MPI_COMM_WORLD);
       MPI_Send(&index, 1, MPI_INT, dest, indexmsg, MPI_COMM_WORLD);
-      MPI_Send(&tarregloRes[index], chunksize, MPI_DOUBLE, MASTER, arraymsg,MPI_COMM_WORLD);
+      MPI_Send(&tarregloRes[index], tamano, MPI_DOUBLE, MASTER, arraymsg,MPI_COMM_WORLD);
     }
     MPI_Finalize();
 }
